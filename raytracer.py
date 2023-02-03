@@ -2,6 +2,8 @@ import numpy as np
 import math
 import cv2
 
+EPSILON = .0001
+
 
 def unit_vector(vector):
     """ Returns the unit vector of the vector.  """
@@ -56,11 +58,6 @@ class Sphere:
         # find ray time
         t = (-b - math.sqrt(disc))/(2*a)
 
-        # check if depth reached
-        if depth == 0:
-            return [self.color, t]
-
-
         # find point on sphere
         x = x0 + t*dx
         y = y0 + t*dy
@@ -69,19 +66,44 @@ class Sphere:
         # light source coords
         Lx, Ly, Lz = lights[0].pos[0],lights[0].pos[1],lights[0].pos[2]
 
+        # check if depth reached
+        if depth == 0:
+            #print(self.diffuse_shading(x, y, z, Lx, Ly, Lz, t))
+            return self.diffuse_shading(x, y, z, Lx, Ly, Lz, t)
+
+        # dont reflect if no mirror
+        if self.mirror == 0:
+            return self.diffuse_shading(x, y, z, Lx, Ly, Lz, t)
+
         # shadows
         # vector pointing to light
         shadow_ray = [x, y, z, Lx, Ly, Lz]
         for object in scene:
+            if isinstance(object, Plane):
+                continue
+
             found = object.find_intersection(shadow_ray, 0)
             ttk = found[-1]
-            if ttk < float("inf") and ttk > .0001:           
-                return [[0,0,0], 0]
+            if ttk < float("inf") and ttk > EPSILON:           
+                return [[object.mirror,object.mirror,object.mirror], 0]
 
-        # add reflections
-        # vector reflected off objects
-        return self.diffuse_shading(x, y, z, Lx, Ly, Lz,t)
-        
+        # reflections
+        # calculate normal vector and reflect ray d−2(d⋅n)n
+        N = np.array([(x - cx)/R, (y - cy)/R, (z - cz)/R]) # unit normal vector
+        unit_ray = unit_vector(np.array([x - ray[0], y - ray[1], z - ray[2]]))
+        reflection_ray = unit_ray - 2 * (np.dot(N, unit_ray)) * N
+
+        for object in scene:
+            found = object.find_intersection([cx,cy,cz, reflection_ray[0], reflection_ray[1], reflection_ray[2]], depth-1)
+            ttk = found[1]
+            if ttk < float("inf") and ttk > EPSILON:
+                return [np.array(found[0]) * (self.mirror/100) + (1 - (self.mirror/100)) * np.array(self.diffuse_shading(x, y, z, Lx, Ly, Lz, t)[0]), ttk]
+
+
+        return [[255,255,255], 0]
+        #self.diffuse_shading(x, y, z, Lx, Ly, Lz, t)
+
+
 
     def diffuse_shading(self, x,y,z,Lx,Ly,Lz,t):
         cx,cy,cz = self.pos[0],self.pos[1],self.pos[2]
@@ -97,14 +119,15 @@ class Sphere:
         return [ka*np.array(self.color) + kd * np.array([fctr * self.color[0], fctr * self.color[1], fctr * self.color[2]]), t]
        
 class Plane:
-    def __init__(self, zpos):
+    def __init__(self, zpos, mirror=0):
         self.zpos = zpos
+        self.ground = (83,118,155)
+
 
     def find_intersection(self,ray, depth=1):
-        if depth == 0:
-            return [[0,0,0], float("inf")]
 
-        if ray[5] < self.zpos:
+
+        if ray[5] < 0:#self.zpos:
             # shadows
             # light source coords
             Lx, Ly, Lz = lights[0].pos[0],lights[0].pos[1],lights[0].pos[2]
@@ -119,14 +142,23 @@ class Plane:
             z = ray[5] * t + ray[2]
 
             shadow_ray = [x, y, z, Lx, Ly, Lz]
+            color = []
             for object in scene:
+                if object == self:
+                    break
                 found = object.find_intersection(shadow_ray, 0)
                 ttk = found[-1]
-                if ttk < float("inf") and ttk > 0:           
-                    return [[0,0,0], float("inf")]
+                if ttk < float("inf") and ttk > EPSILON:
+                    opaquenessness = (object.mirror / 100)
+                    return [[0,0,0], 100000]
+                    #color = [opaquenessness * np.array(self.ground)]
+
+            #if len(color) > 0:
+            #    return [color, 10000]
 
 
-            return [(83,118,155), 100000]
+            return [self.ground, 100000]
+
 
         else:
             return [(235, 206, 135), 100000]
@@ -135,8 +167,9 @@ class Light:
     def __init__(self, pos):
         self.pos = pos
 
+precision = 1
 
-l = 200
+l = 200 # put a comment here
 w = 200
 fov = 100
 screen = []
@@ -144,14 +177,16 @@ screen = []
 camera = [l/2,-50,w/2]
 
 
-light_coord = [200, 40, 200]
+light_coord = [200, 100, 200]
 
-scene = [Sphere([l/3,160,170], 40, [255,0,0]), Sphere([30,90,80], 40, [0,255,0]),  Sphere([150,90,40], 40, [0,0,255]), Sphere(light_coord, 5, [255,255,255]), Plane(0)]
+scene = [Sphere([60,100,90], 50, [173,169,170],90), Sphere([160,70,120], 20, [173,169,170],90), Sphere([140,80,40], 40, [0,255,0], 0), Plane(0)]
 
 lights = [Light(light_coord)]
-for x in range(-w//2,w//2):
+for x in range(-w//2 * precision,w//2 * precision):
+    x /= precision
     row = []
-    for z in range(-l//2, l//2):
+    for z in range(-l//2 * precision, l//2 * precision):
+        z /= precision
         #row.append([100,100,0])
         # camera generate rays
         #ray = [camera[0] + x, camera[1], camera[2] + z, 0,1,0]
@@ -160,7 +195,7 @@ for x in range(-w//2,w//2):
         color = [0,0,0]
         closest = float("inf")
         for object in scene:
-            found = object.find_intersection(ray)
+            found = object.find_intersection(ray,3)
             if found[-1] < closest:
                 closest = found[-1]
                 color = found[0]
