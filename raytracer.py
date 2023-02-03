@@ -10,6 +10,7 @@ def unit_vector(vector):
     return vector / np.linalg.norm(vector)
 
 def angle_between(v1, v2):
+    """ Returns the angle in radians between vectors 'v1' and 'v2'. """
     v1_u = unit_vector(v1)
     v2_u = unit_vector(v2)
     return np.arccos(np.clip(np.dot(v1_u, v2_u), -1.0, 1.0))
@@ -39,11 +40,13 @@ class Sphere:
             return 1
 
     def find_intersection(self, ray, depth=1):
+        # set calculation variables
         x0, y0, z0 = ray[0], ray[1], ray[2]
         x1, y1, z1 = ray[0] + ray[3], ray[1] + ray[4], ray[2] + ray[5]
         cx,cy,cz = self.pos[0],self.pos[1],self.pos[2]
         R = self.r
 
+        # solve quadratic equation to find intersection times
         dx = x1 - x0
         dy = y1 - y0
         dz = z1 - z0
@@ -97,8 +100,10 @@ class Sphere:
             found = object.find_intersection([cx,cy,cz, reflection_ray[0], reflection_ray[1], reflection_ray[2]], depth-1)
             ttk = found[1]
             if ttk < float("inf") and ttk > EPSILON:
-                return [np.array(found[0]) * (self.mirror/100) + (1 - (self.mirror/100)) * np.array(self.diffuse_shading(x, y, z, Lx, Ly, Lz, t)[0]), ttk]
-
+                if depth == 0:
+                    return [np.array(found[0]) * (self.mirror/100) + (1 - (self.mirror/100)) * np.array(self.diffuse_shading(x, y, z, Lx, Ly, Lz, t)[0]), ttk]
+                else:
+                    return object.find_intersection([cx,cy,cz, reflection_ray[0], reflection_ray[1], reflection_ray[2]], depth-1)
 
         return [[255,255,255], 0]
         #self.diffuse_shading(x, y, z, Lx, Ly, Lz, t)
@@ -121,7 +126,7 @@ class Sphere:
 class Plane:
     def __init__(self, zpos, mirror=0):
         self.zpos = zpos
-        self.ground = (83,118,155)
+        self.ground = (255,255,255)
 
 
     def find_intersection(self,ray, depth=1):
@@ -136,11 +141,13 @@ class Plane:
             if ray[5] == 0:
                  [(100,0,100), 100000]
 
+            # calculate ray intersecetion point
             t = (self.zpos-ray[2])/ray[5]
             x = ray[3] * t + ray[0]
             y = ray[4] * t + ray[1]
             z = ray[5] * t + ray[2]
 
+            # create ray pointing towards light to see if obstructed
             shadow_ray = [x, y, z, Lx, Ly, Lz]
             color = []
             for object in scene:
@@ -153,11 +160,18 @@ class Plane:
                     return [[0,0,0], 100000]
                     #color = [opaquenessness * np.array(self.ground)]
 
-            #if len(color) > 0:
-            #    return [color, 10000]
+            checkerboard_color = np.array(self.ground)
 
+            x = ray[0] + ray[3] * t
+            y = ray[1] + ray[4] * t
+            #z = ray[2] + ray[5] * t
+            checker_size = 100
+            if (int(x/checker_size) + int(y/checker_size)) % 2 == 0:
+                checkerboard_color = [0,0,180]
+            else:
+                checkerboard_color = [0,0,0]
 
-            return [self.ground, 100000]
+            return [checkerboard_color, 100000]
 
 
         else:
@@ -179,7 +193,7 @@ camera = [l/2,-50,w/2]
 
 light_coord = [200, 100, 200]
 
-scene = [Sphere([60,100,90], 50, [173,169,170],90), Sphere([160,70,120], 20, [173,169,170],90), Sphere([140,80,40], 40, [0,255,0], 0), Plane(0)]
+scene = [Sphere([50,120,120], 60, [173,169,170], 97), Sphere([140,70,40], 40, [0,255,0], 97), Plane(0)]
 
 lights = [Light(light_coord)]
 for x in range(-w//2 * precision,w//2 * precision):
@@ -195,7 +209,7 @@ for x in range(-w//2 * precision,w//2 * precision):
         color = [0,0,0]
         closest = float("inf")
         for object in scene:
-            found = object.find_intersection(ray,3)
+            found = object.find_intersection(ray,2)
             if found[-1] < closest:
                 closest = found[-1]
                 color = found[0]
