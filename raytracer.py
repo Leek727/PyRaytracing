@@ -101,7 +101,8 @@ class Sphere:
                 continue
             found = object.find_intersection([cx,cy,cz, reflection_ray[0], reflection_ray[1], reflection_ray[2]], depth-1)
             if not isinstance(object, Plane):
-                test = self.find_intersection([x,y,z, object.pos[0], object.pos[1], object.pos[2]], -1)
+                uaa = unit_vector(np.array([object.pos[0] - x, object.pos[1] - y, object.pos[2] - z]))
+                test = self.find_intersection([x,y,z, uaa[0], uaa[1], uaa[2]], -1)
             else:
                 test = [[], 1]
             ttk = found[1]
@@ -212,7 +213,7 @@ for x in range(-int(w* precision)//2 ,int(w* precision)//2):
         color = [0,0,0]
         closest = float("inf")
         for object in scene:
-            found = object.find_intersection(ray,3)
+            found = object.find_intersection(ray,2)
             if found[-1] < closest:
                 closest = found[-1]
                 color = found[0]
