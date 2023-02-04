@@ -2,8 +2,7 @@ import numpy as np
 import math
 import cv2
 
-EPSILON = .0001
-
+EPSILON = .000001
 
 def unit_vector(vector):
     """ Returns the unit vector of the vector.  """
@@ -31,7 +30,6 @@ class Sphere:
             
             try:
                 if object.find_intersect(ray) > 0:
-                    print(object.find_intersect(ray))
                     return -1
 
             except Exception as e:
@@ -71,24 +69,26 @@ class Sphere:
 
         # check if depth reached
         if depth == 0:
-            #print(self.diffuse_shading(x, y, z, Lx, Ly, Lz, t))
             return self.diffuse_shading(x, y, z, Lx, Ly, Lz, t)
-
+        
+        if depth < 0:
+            return [[], t]
         # dont reflect if no mirror
         if self.mirror == 0:
             return self.diffuse_shading(x, y, z, Lx, Ly, Lz, t)
 
-        # shadows
-        # vector pointing to light
-        shadow_ray = [x, y, z, Lx, Ly, Lz]
-        for object in scene:
-            if isinstance(object, Plane):
-                continue
+        if depth == 0:
+            # shadows
+            # vector pointing to light
+            shadow_ray = [x, y, z, Lx, Ly, Lz]
+            for object in scene:
+                if isinstance(object, Plane):
+                    continue
 
-            found = object.find_intersection(shadow_ray, 0)
-            ttk = found[-1]
-            if ttk < float("inf") and ttk > EPSILON:           
-                return [[object.mirror,object.mirror,object.mirror], 0]
+                found = object.find_intersection(shadow_ray, 0)
+                ttk = found[-1]
+                if ttk < float("inf") and ttk > EPSILON:           
+                    return [[object.mirror,object.mirror,object.mirror], 0]
 
         # reflections
         # calculate normal vector and reflect ray d−2(d⋅n)n
@@ -97,18 +97,23 @@ class Sphere:
         reflection_ray = unit_ray - 2 * (np.dot(N, unit_ray)) * N
 
         for object in scene:
+            if object == self:
+                continue
             found = object.find_intersection([cx,cy,cz, reflection_ray[0], reflection_ray[1], reflection_ray[2]], depth-1)
+            if not isinstance(object, Plane):
+                test = self.find_intersection([x,y,z, object.pos[0], object.pos[1], object.pos[2]], -1)
+            else:
+                test = [[], 1]
             ttk = found[1]
-            if ttk < float("inf") and ttk > EPSILON:
+            testval = abs(test[1])
+
+            if ttk < float("inf") and ttk > EPSILON and testval < float("inf") and testval > EPSILON: # very very bad workaround for unknown issue TODO FIX
                 if depth == 0:
                     return [np.array(found[0]) * (self.mirror/100) + (1 - (self.mirror/100)) * np.array(self.diffuse_shading(x, y, z, Lx, Ly, Lz, t)[0]), ttk]
                 else:
-                    return object.find_intersection([cx,cy,cz, reflection_ray[0], reflection_ray[1], reflection_ray[2]], depth-1)
+                    return [np.array(object.find_intersection([cx,cy,cz, reflection_ray[0], reflection_ray[1], reflection_ray[2]], depth-1)[0]) * (self.mirror/100) + (1 - (self.mirror/100)) * np.array(self.diffuse_shading(x, y, z, Lx, Ly, Lz, t)[0]), ttk]
 
         return [[255,255,255], 0]
-        #self.diffuse_shading(x, y, z, Lx, Ly, Lz, t)
-
-
 
     def diffuse_shading(self, x,y,z,Lx,Ly,Lz,t):
         cx,cy,cz = self.pos[0],self.pos[1],self.pos[2]
@@ -126,12 +131,11 @@ class Sphere:
 class Plane:
     def __init__(self, zpos, mirror=0):
         self.zpos = zpos
-        self.ground = (255,255,255)
+        self.ground = np.array([255,255,255])
+        self.sky = np.array([235, 206, 135])
 
 
     def find_intersection(self,ray, depth=1):
-
-
         if ray[5] < 0:#self.zpos:
             # shadows
             # light source coords
@@ -160,46 +164,45 @@ class Plane:
                     return [[0,0,0], 100000]
                     #color = [opaquenessness * np.array(self.ground)]
 
-            checkerboard_color = np.array(self.ground)
-
-            x = ray[0] + ray[3] * t
-            y = ray[1] + ray[4] * t
-            #z = ray[2] + ray[5] * t
             checker_size = 100
             if (int(x/checker_size) + int(y/checker_size)) % 2 == 0:
-                checkerboard_color = [0,0,180]
+                return [[0,0,180],100000]
             else:
-                checkerboard_color = [0,0,0]
-
-            return [checkerboard_color, 100000]
-
+                return [[0,0,0], 100000]
 
         else:
-            return [(235, 206, 135), 100000]
+            if ray[5] == 0:
+                return [(235, 206, 135), 100000]
+
+            t = abs((self.zpos -ray[2])/ray[5])
+            t /= 4
+            if t > 255:
+                return [self.sky, 10000]
+            return [self.sky * (t/255),10000]
 
 class Light:
     def __init__(self, pos):
         self.pos = pos
 
-precision = 1
+precision = 1.5
 
 l = 200 # put a comment here
 w = 200
 fov = 100
 screen = []
 
-camera = [l/2,-50,w/2]
+camera = [l/2,-50,w/2 + 10]
 
 
-light_coord = [200, 100, 200]
+light_coord = [100, 50, 200]
 
-scene = [Sphere([50,120,120], 60, [173,169,170], 97), Sphere([140,70,40], 40, [0,255,0], 97), Plane(0)]
+scene = [Sphere([100,100,130], 50, [255,255,0], 100), Sphere([50,50,80], 30, [255,255,0], 100), Sphere([150,50,80], 30, [255,255,0], 0),  Plane(0)]
 
 lights = [Light(light_coord)]
-for x in range(-w//2 * precision,w//2 * precision):
+for x in range(-int(w* precision)//2 ,int(w* precision)//2):
     x /= precision
     row = []
-    for z in range(-l//2 * precision, l//2 * precision):
+    for z in range(-int(l * precision)//2, int(l * precision)//2):
         z /= precision
         #row.append([100,100,0])
         # camera generate rays
@@ -209,11 +212,10 @@ for x in range(-w//2 * precision,w//2 * precision):
         color = [0,0,0]
         closest = float("inf")
         for object in scene:
-            found = object.find_intersection(ray,2)
+            found = object.find_intersection(ray,3)
             if found[-1] < closest:
                 closest = found[-1]
                 color = found[0]
-
 
         row.append(color)
                 
@@ -222,5 +224,6 @@ for x in range(-w//2 * precision,w//2 * precision):
     cv2.imshow('image', np.rot90(np.uint8(screen)))
     cv2.waitKey(1)
 
+cv2.imwrite('render.png', np.rot90(np.uint8(screen)))
 cv2.imshow('image', np.rot90(np.uint8(screen)))
 cv2.waitKey(0)
