@@ -2,7 +2,7 @@ import numpy as np
 import math
 import cv2
 
-EPSILON = .000001
+EPSILON = .00001
 
 def unit_vector(vector):
     """ Returns the unit vector of the vector.  """
@@ -172,23 +172,37 @@ class Plane:
                 return [[0,0,0], 100000]
 
         else:
-            if ray[5] == 0:
-                return [(235, 206, 135), 100000]
+            gradient = 0
+            if gradient:
+                if ray[5] == 0:
+                    return [(235, 206, 135), 100000]
 
-            t = abs((self.zpos -ray[2])/ray[5])
-            t /= 4
-            if t > 255:
-                return [self.sky, 10000]
-            return [self.sky * (t/255),10000]
+                t = abs((self.zpos -ray[2])/ray[5])
+                t /= 1
+                if t > 255:
+                    return [self.sky, 10000]
+                return [self.sky * (t/255),10000]
+            else:
+            # calculate ray intersecetion point
+                t = (1000-ray[2])/(ray[5] + .001)
+                x = ray[3] * t + ray[0]
+                y = ray[4] * t + ray[1]
+                z = ray[5] * t + ray[2]
+
+                checker_size = 1000
+                if (int(x/checker_size) + int(y/checker_size)) % 2 == 0:
+                    return [self.sky,100000]
+                else:
+                    return [self.sky * 2, 100000]
 
 class Light:
     def __init__(self, pos):
         self.pos = pos
 
-precision = 1.5
+precision = 4
 
 l = 200 # put a comment here
-w = 200
+w = 00
 fov = 100
 screen = []
 
@@ -197,7 +211,7 @@ camera = [l/2,-50,w/2 + 10]
 
 light_coord = [100, 50, 200]
 
-scene = [Sphere([100,100,130], 50, [255,255,0], 100), Sphere([50,50,80], 30, [255,255,0], 100), Sphere([150,50,80], 30, [255,255,0], 0),  Plane(0)]
+scene = [Sphere([100,100,130], 50, [255,0,0], 30), Sphere([50,50,80], 30, [0,255,0], 30), Sphere([150,50,80], 30, [0,0,255], 30),  Plane(0)]
 
 lights = [Light(light_coord)]
 for x in range(-int(w* precision)//2 ,int(w* precision)//2):
@@ -213,7 +227,7 @@ for x in range(-int(w* precision)//2 ,int(w* precision)//2):
         color = [0,0,0]
         closest = float("inf")
         for object in scene:
-            found = object.find_intersection(ray,2)
+            found = object.find_intersection(ray,4)
             if found[-1] < closest:
                 closest = found[-1]
                 color = found[0]
