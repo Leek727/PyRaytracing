@@ -202,7 +202,7 @@ class Light:
 precision = 4
 
 l = 200 # put a comment here
-w = 00
+w = 200
 fov = 100
 screen = []
 
