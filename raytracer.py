@@ -124,8 +124,8 @@ class Sphere:
         L = unit_vector(np.array([Lx-x, Ly-y, Lz-z]))
 
         fctr = math.cos(angle_between(N, L))
-        kd = .5
-        ka = .5
+        kd = .3
+        ka = .3
 
         return [ka*np.array(self.color) + kd * np.array([fctr * self.color[0], fctr * self.color[1], fctr * self.color[2]]), t]
        
@@ -199,7 +199,7 @@ class Light:
     def __init__(self, pos):
         self.pos = pos
 
-precision = 4
+precision = 20
 
 l = 200 # put a comment here
 w = 200
@@ -211,7 +211,7 @@ camera = [l/2,-50,w/2 + 10]
 
 light_coord = [100, 50, 200]
 
-scene = [Sphere([100,100,130], 50, [255,0,0], 30), Sphere([50,50,80], 30, [0,255,0], 30), Sphere([150,50,80], 30, [0,0,255], 30),  Plane(0)]
+scene = [Sphere([150,50,150], 10, [192,192,192], 100), Sphere([100,60,50], 30, [192,192,192], 0), Sphere([100,90,130], 30, [255,0,0], 30), Sphere([50,85,80], 30, [0,255,0], 30), Sphere([150,85,80], 30, [0,0,255], 30),  Plane(0)]
 
 lights = [Light(light_coord)]
 for x in range(-int(w* precision)//2 ,int(w* precision)//2):
@@ -236,9 +236,11 @@ for x in range(-int(w* precision)//2 ,int(w* precision)//2):
                 
     screen.append(row)
     
-    cv2.imshow('image', np.rot90(np.uint8(screen)))
-    cv2.waitKey(1)
+    print(str(round(((x + 100) / 2), 2)) + "%")
+    src = np.rot90(np.uint8(screen))
+    #cv2.imshow('image', src)
+    #cv2.waitKey(1)
 
-cv2.imwrite('render.png', np.rot90(np.uint8(screen)))
-cv2.imshow('image', np.rot90(np.uint8(screen)))
+cv2.imwrite('render.png',src)
+cv2.imshow('image',src)
 cv2.waitKey(0)
