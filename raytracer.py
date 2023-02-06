@@ -3,6 +3,7 @@ import math
 import cv2
 
 EPSILON = .00001
+UPSILON = 150000
 
 def unit_vector(vector):
     """ Returns the unit vector of the vector.  """
@@ -124,10 +125,12 @@ class Sphere:
         kd = .3
         ka = .3
         d = 1 / math.sqrt((Lx-x)**2 + (Ly-y)**2 + (Lz-z)**2) ** 2
-        #d *= 1000
-        #return [d * np.array(ka*np.array(self.color) + kd * np.array([fctr * self.color[0], fctr * self.color[1], fctr * self.color[2]])), t]
+        d *= UPSILON
+        if d > 1:
+            d = 1
+        return [d * np.array(ka*np.array(self.color) + kd * np.array([fctr * self.color[0], fctr * self.color[1], fctr * self.color[2]])), t]
             
-        return [ka*np.array(self.color) + kd * np.array([fctr * self.color[0], fctr * self.color[1], fctr * self.color[2]]), t]
+        #return [ka*np.array(self.color) + kd * np.array([fctr * self.color[0], fctr * self.color[1], fctr * self.color[2]]), t]
        
 class Plane:
     def __init__(self, zpos, mirror=0):
@@ -140,7 +143,7 @@ class Plane:
         Lx, Ly, Lz = lights[0].pos[0],lights[0].pos[1],lights[0].pos[2]
         # inverse square
         d = 1 / math.sqrt((Lx-x)**2 + (Ly-y)**2 + (Lz-z)**2) ** 2
-        d *= 100000
+        d *= UPSILON
 
         if d > 1:
             d = 1
@@ -214,7 +217,11 @@ class Plane:
                 z = ray[5] * t + ray[2]
 
                 d = 1 / math.sqrt((Lx-x)**2 + (Ly-y)**2 + (Lz-z)**2) ** 2
-                d *= 100000
+                d *= UPSILON
+                if d > 1:
+                    d = 1
+                if d < 0:
+                    d = 0
 
                 try:
                     checker_size = 100
@@ -230,7 +237,7 @@ class Light:
     def __init__(self, pos):
         self.pos = pos
 
-precision = 1
+precision = 3
 
 l = 200 # put a comment here
 w = 200
